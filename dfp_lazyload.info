@@ -1,0 +1,6 @@
+name = DFP Lazyload
+description = Lazyload for DFP
+package = Advertising
+core = 7.x
+dependencies[] = dfp
+configure = admin/structure/dfp_ads/lazyload
