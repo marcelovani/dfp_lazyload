@@ -50,3 +50,62 @@ function dfp_lazyload_settings_form() {
   return system_settings_form($form);
 }
 
+/**
+ * Lazy load callback.
+ *
+ * @param $slot_machine_name String The machine name of the ad slot.
+ */
+function dfp_lazyload_load_slot($slot_machine_name) {
+  // Add inline script.
+  $ad_slot = '';
+  if (module_exists('dfp')) {
+
+    $tag = dfp_tag($slot_machine_name);
+    if (empty($tag)) {
+      drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $slot_machine_name)), 'error');
+      return;
+    }
+
+    $rendered_tag = render($tag);
+    $pieces = array(
+      'var googletag\s*=\s*googletag\s.',
+      'googletag\.slots\[\"' . $slot_machine_name  . '\"\]\s*=\s*googletag\.defineSlot\(',
+      'googletag\.enableServices\(',
+    );
+    $pattern = '/' . implode('|', $pieces) . '/';
+
+    // Check for needed JavaScript respecting the key order from $pieces.
+    foreach (drupal_add_js() as $key => $value) {
+      if (is_numeric($key) && strstr($value['data'], 'googletag')) {
+        if (!preg_match($pattern, $value['data'])) {
+          continue;
+        }
+        // Loop again to order the slots.
+        foreach ($pieces as $key => $individual_pattern) {
+          if (preg_match('/' . $individual_pattern . '/', $value['data'])) {
+            $matched_ad_slots[$key] = $value['data'];
+            break 1;
+          }
+        }
+      }
+    }
+
+    // Sort the array and append values as separate script.
+    ksort($matched_ad_slots);
+    foreach ($matched_ad_slots as $ad_slot_value) {
+      $ad_slot .= '<script type="text/javascript">' . $ad_slot_value . '</script>' . PHP_EOL;
+    }
+
+    $ad_slot .= $rendered_tag;
+
+    // Load the ads even if "initial ad load" from dfp module is disabled.
+    if (variable_get('dfp_disable_init_load', 1)) {
+      $ad_slot = str_ireplace('googletag.pubads().disableInitialLoad();', '', $ad_slot);
+    }
+  }
+
+  return $ad_slot;
+}
+
+
+
