@@ -2,6 +2,7 @@ Module: DFP Lazyload
 
 Description
 ===========
+Experimental module to work with lazyloading.
 
 Installation
 ============
