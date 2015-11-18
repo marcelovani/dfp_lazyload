@@ -3,3 +3,22 @@
  * @file
  * Main module file for DFP Lazyload.
  */
+
+/**
+ * Implements hook_menu().
+ */
+function dfp_lazyload_menu() {
+  $items = array();
+  $items['admin/structure/dfp_ads/lazyload'] = array(
+    'title' => 'DFP Lazyload',
+    'description' => 'Configure DFP Lazyload.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dfp_lazyload_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 15,
+  );
+
+  return $items;
+}
+
