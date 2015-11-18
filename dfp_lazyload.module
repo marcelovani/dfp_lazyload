@@ -107,5 +107,24 @@ function dfp_lazyload_load_slot($slot_machine_name) {
   return $ad_slot;
 }
 
+/**
+ * Implements hook_page_build().
+ *
+ */
+function dfp_lazyload_page_build(&$page) {
 
+  $slot_machine_name = variable_get('dfp_lazyload_machinename');
+  $frequency = variable_get('dfp_lazyload_frequency', 3);
+  $rendered_slot = dfp_lazyload_load_slot($slot_machine_name, $frequency);
+
+  drupal_add_js(array(
+    'dfpLazyload' => array(
+      'config' => array(
+        'dfp_lazyload_machinename' => $slot_machine_name,
+        'dfp_lazyload_frequency' => $frequency,
+        'dfp_lazyload_rendered_slot' => $rendered_slot,
+      ),
+    ),
+  ), 'setting');
+}
 
