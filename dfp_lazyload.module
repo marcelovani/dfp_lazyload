@@ -53,50 +53,38 @@ function dfp_lazyload_settings_form() {
 /**
  * Lazy load callback.
  *
- * @param $ad_slot_machine_name String The machine name of the ad slot.
+ * @param $ad_slot_machinename String The machine name of the ad slot.
  */
-function dfp_lazyload_load_slot($ad_slot_machine_name) {
+function dfp_lazyload_load_slot($ad_slot_machinename) {
   // Add inline script.
   $ad_slot = '';
   if (module_exists('dfp')) {
 
-    $tag = dfp_tag($ad_slot_machine_name);
+    $tag = dfp_tag($ad_slot_machinename);
     if (empty($tag)) {
-      drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $ad_slot_machine_name)), 'error');
+      drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $ad_slot_machinename)), 'error');
       return;
     }
 
-    $rendered_tag = render($tag);
-    $pieces = array(
-      'var googletag\s*=\s*googletag\s.',
-      'googletag\.slots\[\"' . $ad_slot_machine_name  . '\"\]\s*=\s*googletag\.define[^\(]*?Slot\(',
-      'googletag\.enableServices\(',
-    );
-    $pattern = '/' . implode('|', $pieces) . '/';
-krumo(drupal_add_js());
-    // Check for needed JavaScript respecting the key order from $pieces.
-    foreach (drupal_add_js() as $key => $value) {
-      if (is_numeric($key) && strstr($value['data'], 'googletag')) {
-        if (!preg_match($pattern, $value['data'])) {
-          continue;
-        }
-        // Loop again to order the slots.
-        foreach ($pieces as $key => $individual_pattern) {
-          if (preg_match('/' . $individual_pattern . '/', $value['data'])) {
-            $matched_ad_slots[$key] = $value['data'];
-            break 1;
-          }
-        }
-      }
+    // When we provide a DFP slot as configuration for dfp_lazyload_machinename
+    // and this slot is not supposed to be printed on the page until we need it
+    // (lazyload), we need to make sure that the slot is removed after we render
+    // the tag below.
+    if (!_dfp_lazyload_get_slot_definition($ad_slot_machinename)) {
+      // Store the slot to be removed later in hook_js_alter().
+      _dfp_lazyload_slot_to_remove($ad_slot_machinename);
     }
 
-    // Sort the array and append values as separate script.
-    krumo($matched_ad_slots);
-    ksort($matched_ad_slots);
-    foreach ($matched_ad_slots as $ad_slot_value) {
+    // Render the tag. This will add DFP javascript to the page. i.e. defineSlot().
+    $rendered_tag = render($tag);
+
+    // Now that the tags are rendered, DFP added the slot definitions to the page.
+    // Lets get it.
+    if ($ad_slot_value = _dfp_lazyload_get_slot_definition($ad_slot_machinename)) {
       $ad_slot .= '<script type="text/javascript">' . $ad_slot_value . '</script>' . PHP_EOL;
     }
 
+    // Append the rendered tag.
     $ad_slot .= $rendered_tag;
 
     // Load the ads even if "initial ad load" from dfp module is disabled.
@@ -114,17 +102,64 @@ krumo(drupal_add_js());
  */
 function dfp_lazyload_page_build(&$page) {
 
-  $ad_slot_machine_name = variable_get('dfp_lazyload_machinename');
+  $ad_slot_machinename = variable_get('dfp_lazyload_machinename');
   $frequency = variable_get('dfp_lazyload_frequency', 3);
-  $rendered_slot = dfp_lazyload_load_slot($ad_slot_machine_name, $frequency);
+  $rendered_slot = dfp_lazyload_load_slot($ad_slot_machinename, $frequency);
 
   drupal_add_js(array(
     'dfpLazyload' => array(
       'config' => array(
-        'ad_slot_machinename' => $ad_slot_machine_name,
+        'ad_slot_machinename' => $ad_slot_machinename,
         'frequency' => $frequency,
         'rendered_slot' => $rendered_slot,
       ),
     ),
   ), 'setting');
+}
+
+/**
+ * Helper to loop the js added and check if the slot definition provided is available.
+ *
+ * @param $ad_slot_machinename String The machine name of the slot.
+ */
+function _dfp_lazyload_get_slot_definition($ad_slot_machinename) {
+  // Check for needed JavaScript respecting the key order from $pieces.
+  foreach (drupal_add_js() as $key => $value) {
+    if (isset($value['data']) && !is_array($value['data']) && strstr($value['data'], 'googletag')) {
+      if (preg_match('/' . 'googletag\.slots\[\"' . $ad_slot_machinename . '\"\]\s*=\s*googletag\.define[^\(]*?Slot\(' . '/', $value['data'])) {
+        return $value['data'];
+      }
+    }
+  }
+}
+
+/**
+ * Helper to statically store the slot to be removed in hook_js_alter().
+ *
+ * @param $ad_slot_machinename String The machine name of the slot.
+ */
+function _dfp_lazyload_slot_to_remove($ad_slot_machinename = NULL) {
+  $machinename = &drupal_static(__FUNCTION__, FALSE);
+  if (!empty($ad_slot_machinename)) {
+    $machinename = $ad_slot_machinename;
+  }
+  return $machinename;
+}
+
+/**
+ * Helper to remove ad slot used primarily for lazy loading.
+ *
+ * @param $js
+ */
+function dfp_lazyload_js_alter(&$javascript) {
+  $ad_slot_machinename = _dfp_lazyload_slot_to_remove();
+
+  // Iterate of all javascript items to get dfp slots.
+  foreach ($javascript as $key => $value) {
+    if (isset($value['data']) && !is_array($value['data']) && strstr($value['data'], 'googletag')) {
+      if (preg_match('/' . 'googletag\.slots\[\"' . $ad_slot_machinename . '\"\]\s*=\s*googletag\.define[^\(]*?Slot\(' . '/', $value['data'])) {
+        unset($javascript[$key]);
+      }
+    }
+  }
 }
