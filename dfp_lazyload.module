@@ -53,27 +53,27 @@ function dfp_lazyload_settings_form() {
 /**
  * Lazy load callback.
  *
- * @param $slot_machine_name String The machine name of the ad slot.
+ * @param $ad_slot_machine_name String The machine name of the ad slot.
  */
-function dfp_lazyload_load_slot($slot_machine_name) {
+function dfp_lazyload_load_slot($ad_slot_machine_name) {
   // Add inline script.
   $ad_slot = '';
   if (module_exists('dfp')) {
 
-    $tag = dfp_tag($slot_machine_name);
+    $tag = dfp_tag($ad_slot_machine_name);
     if (empty($tag)) {
-      drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $slot_machine_name)), 'error');
+      drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $ad_slot_machine_name)), 'error');
       return;
     }
 
     $rendered_tag = render($tag);
     $pieces = array(
       'var googletag\s*=\s*googletag\s.',
-      'googletag\.slots\[\"' . $slot_machine_name  . '\"\]\s*=\s*googletag\.defineSlot\(',
+      'googletag\.slots\[\"' . $ad_slot_machine_name  . '\"\]\s*=\s*googletag\.define[^\(]*?Slot\(',
       'googletag\.enableServices\(',
     );
     $pattern = '/' . implode('|', $pieces) . '/';
-
+krumo(drupal_add_js());
     // Check for needed JavaScript respecting the key order from $pieces.
     foreach (drupal_add_js() as $key => $value) {
       if (is_numeric($key) && strstr($value['data'], 'googletag')) {
@@ -91,6 +91,7 @@ function dfp_lazyload_load_slot($slot_machine_name) {
     }
 
     // Sort the array and append values as separate script.
+    krumo($matched_ad_slots);
     ksort($matched_ad_slots);
     foreach ($matched_ad_slots as $ad_slot_value) {
       $ad_slot .= '<script type="text/javascript">' . $ad_slot_value . '</script>' . PHP_EOL;
@@ -113,18 +114,17 @@ function dfp_lazyload_load_slot($slot_machine_name) {
  */
 function dfp_lazyload_page_build(&$page) {
 
-  $slot_machine_name = variable_get('dfp_lazyload_machinename');
+  $ad_slot_machine_name = variable_get('dfp_lazyload_machinename');
   $frequency = variable_get('dfp_lazyload_frequency', 3);
-  $rendered_slot = dfp_lazyload_load_slot($slot_machine_name, $frequency);
+  $rendered_slot = dfp_lazyload_load_slot($ad_slot_machine_name, $frequency);
 
   drupal_add_js(array(
     'dfpLazyload' => array(
       'config' => array(
-        'dfp_lazyload_machinename' => $slot_machine_name,
-        'dfp_lazyload_frequency' => $frequency,
-        'dfp_lazyload_rendered_slot' => $rendered_slot,
+        'ad_slot_machinename' => $ad_slot_machine_name,
+        'frequency' => $frequency,
+        'rendered_slot' => $rendered_slot,
       ),
     ),
   ), 'setting');
 }
-
