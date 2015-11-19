@@ -15,8 +15,8 @@ Documentation
 =============
 Example of implementation of add in javascript
 ...
-var slot_machinename = Drupal.settings.dfpLazyload.config.dfp_lazyload_machinename;
-var ad_slot = Drupal.settings.dfpLazyload.config.dfp_lazyload_rendered_slot;
+var slot_machinename = Drupal.settings.dfpLazyload.config.ad_slot_machinename;
+var ad_slot = Drupal.settings.dfpLazyload.config.rendered_slot;
 
 // Append delta in order to clone slot multiple times.
 var regex = new RegExp(slot_machinename, 'g');
