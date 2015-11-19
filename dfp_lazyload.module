@@ -59,7 +59,6 @@ function dfp_lazyload_load_slot($ad_slot_machinename) {
   // Add inline script.
   $ad_slot = '';
   if (module_exists('dfp')) {
-
     $tag = dfp_tag($ad_slot_machinename);
     if (empty($tag)) {
       drupal_set_message(t('Invalid dfp tag: %name', array('%name' => $ad_slot_machinename)), 'error');
@@ -100,7 +99,10 @@ function dfp_lazyload_load_slot($ad_slot_machinename) {
  * Implements hook_page_build().
  *
  */
-function dfp_lazyload_page_build(&$page) {
+function dfp_lazyload_page_alter(&$page) {
+  if (path_is_admin(current_path())) {
+    return;
+  }
 
   $ad_slot_machinename = variable_get('dfp_lazyload_machinename');
   $frequency = variable_get('dfp_lazyload_frequency', 3);
@@ -159,7 +161,20 @@ function dfp_lazyload_js_alter(&$javascript) {
     if (isset($value['data']) && !is_array($value['data']) && strstr($value['data'], 'googletag')) {
       if (preg_match('/' . 'googletag\.slots\[\"' . $ad_slot_machinename . '\"\]\s*=\s*googletag\.define[^\(]*?Slot\(' . '/', $value['data'])) {
         unset($javascript[$key]);
+        return;
       }
     }
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function dfp_lazyload_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'page_alter') {
+    // We need to ensure that dfp_lazyload runs after dfp and context.
+    $module = array('dfp_lazyload' => $implementations['dfp_lazyload']);
+    unset($implementations['dfp_lazyload']);
+    $implementations = $implementations + $module;
   }
 }
